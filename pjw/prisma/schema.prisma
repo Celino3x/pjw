@@ -1,0 +1,23 @@
+// prisma/schema.prisma
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Usuario {
+  id         Int     @id @default(autoincrement())
+  nome       String  @db.VarChar(150)
+  email      String  @unique @db.VarChar(150)
+  senha_hash String  @db.VarChar(255)
+  nivel_usuario String? @db.VarChar(50)
+  privilegio String? @db.VarChar(50)
+  foto_perfil String? @db.VarChar(255)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("usuarios")
+}
