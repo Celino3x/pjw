@@ -2,6 +2,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { hash } from "bcryptjs";
+import { writeFile, mkdir } from "fs/promises";
+import path from "path";
 
 // GET - Buscar usuário por ID
 export async function GET(
@@ -68,13 +70,55 @@ export async function PUT(
 ) {
   try {
     const id = parseInt(params.id);
-    const body = await request.json();
 
     if (isNaN(id)) {
       return NextResponse.json(
         { success: false, message: "ID inválido" },
         { status: 400 }
       );
+    }
+
+    // Verificar se é FormData (com foto) ou JSON
+    const contentType = request.headers.get("content-type") || "";
+
+    let body: any = {};
+    let fotoPerfil = undefined;
+
+    if (contentType.includes("multipart/form-data")) {
+      const formData = await request.formData();
+
+      // Extrair campos do FormData
+      body.nome = formData.get("nome") as string;
+      body.email = formData.get("email") as string;
+      body.senha = formData.get("senha") as string;
+      body.data_nascimento = formData.get("data_nascimento") as string;
+      body.data_batismo = formData.get("data_batismo") as string;
+      body.telefone = formData.get("telefone") as string;
+      body.endereco = formData.get("endereco") as string;
+      body.classe = formData.get("classe") as string;
+      body.sexo = formData.get("sexo") as string;
+      body.nivel_usuario = formData.get("nivel_usuario") as string;
+      body.privilegio = formData.get("privilegio") as string;
+
+      // Processar foto
+      const foto = formData.get("foto") as File;
+      if (foto && foto.size > 0) {
+        const bytes = await foto.arrayBuffer();
+        const buffer = Buffer.from(bytes);
+
+        const ext = foto.name.split(".").pop();
+        const nomeArquivo = `profile_${Date.now()}.${ext}`;
+        const caminho = path.join(process.cwd(), "public/uploads", nomeArquivo);
+
+        await mkdir(path.dirname(caminho), { recursive: true });
+        await writeFile(caminho, buffer);
+        fotoPerfil = `/uploads/${nomeArquivo}`;
+      }
+    } else {
+      body = await request.json();
+      if (body.foto_perfil !== undefined) {
+        fotoPerfil = body.foto_perfil;
+      }
     }
 
     // Verificar se usuário existe
@@ -89,7 +133,7 @@ export async function PUT(
       );
     }
 
-    // Verificar email duplicado (se mudou)
+    // Verificar email duplicado
     if (body.email && body.email !== usuarioExistente.email) {
       const emailExiste = await prisma.usuario.findUnique({
         where: { email: body.email },
@@ -105,14 +149,16 @@ export async function PUT(
     // Validar privilégios (apenas para homens)
     if (body.sexo === "Feminino") {
       const privilegiosMasculinos = ["Pioneiro", "Servo Ministerial", "Ancião"];
-      const privilegiosSelecionados = Array.isArray(body.privilegio) ? body.privilegio : [];
+      const privilegiosSelecionados = body.privilegio
+        ? body.privilegio.split(",")
+        : [];
 
       for (const priv of privilegiosSelecionados) {
         if (privilegiosMasculinos.includes(priv)) {
           return NextResponse.json(
-            { 
-              success: false, 
-              message: `O privilégio "${priv}" é permitido apenas para homens` 
+            {
+              success: false,
+              message: `O privilégio "${priv}" é permitido apenas para homens`,
             },
             { status: 400 }
           );
@@ -131,11 +177,12 @@ export async function PUT(
       classe: body.classe || "Outras Ovelhas",
       sexo: body.sexo || null,
       nivel_usuario: body.nivel_usuario || "Publicador",
-      privilegio: Array.isArray(body.privilegio) 
-        ? body.privilegio.join(",") 
-        : body.privilegio || "Publicador",
-      foto_perfil: body.foto_perfil || null,
+      privilegio: body.privilegio || "Publicador",
     };
+
+    if (fotoPerfil !== undefined) {
+      data.foto_perfil = fotoPerfil;
+    }
 
     // Se senha foi fornecida, atualizar
     if (body.senha) {
@@ -163,17 +210,17 @@ export async function PUT(
         data_batismo: true,
         telefone: true,
         endereco: true,
+        foto_perfil: true,
         criado_em: true,
         atualizado_em: true,
       },
     });
 
-    return NextResponse.json({ 
-      success: true, 
+    return NextResponse.json({
+      success: true,
       message: "Publicador atualizado com sucesso!",
-      usuario 
+      usuario,
     });
-
   } catch (error) {
     console.error("Erro ao atualizar usuário:", error);
     return NextResponse.json(
@@ -210,11 +257,10 @@ export async function DELETE(
       where: { id },
     });
 
-    return NextResponse.json({ 
-      success: true, 
-      message: "Publicador excluído com sucesso!" 
+    return NextResponse.json({
+      success: true,
+      message: "Publicador excluído com sucesso!",
     });
-
   } catch (error) {
     console.error("Erro ao excluir usuário:", error);
     return NextResponse.json(

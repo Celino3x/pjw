@@ -1,34 +1,51 @@
-// app/admin/usuarios/novo/page.tsx
 "use client";
 
-import { useState, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, useRef } from "react";
+import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
-import { Camera, User, X } from "lucide-react";
+import { Camera, User, X, Loader2 } from "lucide-react";
 
-export default function NovoUsuarioPage() {
+interface Usuario {
+  id: number;
+  nome: string;
+  email: string;
+  data_nascimento: string | null;
+  data_batismo: string | null;
+  telefone: string | null;
+  endereco: string | null;
+  classe: string;
+  sexo: string | null;
+  nivel_usuario: string;
+  privilegio: string[];
+  foto_perfil: string | null;
+}
+
+export default function EditarUsuarioPage() {
   const router = useRouter();
+  const params = useParams();
+  const id = params.id as string;
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
+  const [carregandoDados, setCarregandoDados] = useState(true);
   const [erro, setErro] = useState("");
   const [sucesso, setSucesso] = useState("");
   const [fotoPreview, setFotoPreview] = useState<string | null>(null);
   const [fotoArquivo, setFotoArquivo] = useState<File | null>(null);
 
-  // Estado do formulário
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<Usuario>({
+    id: 0,
     nome: "",
     email: "",
-    senha: "",
-    confirmar_senha: "",
-    data_nascimento: "",
-    data_batismo: "",
-    telefone: "",
-    endereco: "",
+    data_nascimento: null,
+    data_batismo: null,
+    telefone: null,
+    endereco: null,
     classe: "Outras Ovelhas",
-    sexo: "",
+    sexo: null,
     nivel_usuario: "Publicador",
-    privilegio: ["Publicador"] as string[],
+    privilegio: ["Publicador"],
+    foto_perfil: null,
   });
 
   const privilegiosDisponiveis = [
@@ -46,7 +63,44 @@ export default function NovoUsuarioPage() {
     { value: "Administrador", label: "Administrador" },
   ];
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  // Carregar dados do usuário
+  useEffect(() => {
+    const carregarUsuario = async () => {
+      try {
+        const response = await fetch(`/api/usuarios/${id}`);
+        const data = await response.json();
+
+        if (data.success) {
+          const usuario = data.usuario;
+          setForm({
+            ...usuario,
+            data_nascimento: usuario.data_nascimento || null,
+            data_batismo: usuario.data_batismo || null,
+            privilegio: Array.isArray(usuario.privilegio)
+              ? usuario.privilegio
+              : usuario.privilegio?.split(",") || ["Publicador"],
+          });
+          if (usuario.foto_perfil) {
+            setFotoPreview(usuario.foto_perfil);
+          }
+        } else {
+          setErro(data.message || "Usuário não encontrado");
+        }
+      } catch (error) {
+        setErro("Erro ao carregar dados do usuário");
+      } finally {
+        setCarregandoDados(false);
+      }
+    };
+
+    if (id) {
+      carregarUsuario();
+    }
+  }, [id]);
+
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
   };
@@ -65,7 +119,6 @@ export default function NovoUsuarioPage() {
   const handleFotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // Validar tipo e tamanho
       if (!file.type.startsWith("image/")) {
         setErro("Por favor, selecione uma imagem válida.");
         return;
@@ -99,48 +152,41 @@ export default function NovoUsuarioPage() {
     setErro("");
     setSucesso("");
 
-    // Validar senha
-    if (form.senha !== form.confirmar_senha) {
-      setErro("As senhas não coincidem");
-      setLoading(false);
-      return;
-    }
-
-    if (form.senha.length < 6) {
-      setErro("A senha deve ter no mínimo 6 caracteres");
-      setLoading(false);
-      return;
-    }
-
     try {
       // Criar FormData para enviar com arquivo
       const formData = new FormData();
+
+      // Adicionar todos os campos do form
       Object.entries(form).forEach(([key, value]) => {
-        if (Array.isArray(value)) {
+        if (key === "privilegio") {
           formData.append(key, value.join(","));
-        } else {
-          formData.append(key, value);
+        } else if (value !== null && value !== undefined) {
+          formData.append(key, String(value));
         }
       });
 
+      // Adicionar ID
+      formData.append("id", id);
+
+      // Adicionar foto se houver nova
       if (fotoArquivo) {
         formData.append("foto", fotoArquivo);
       }
 
-      const response = await fetch("/api/usuarios", {
-        method: "POST",
+      const response = await fetch(`/api/usuarios/${id}`, {
+        method: "PUT",
         body: formData,
       });
 
       const data = await response.json();
 
       if (data.success) {
-        setSucesso("Publicador cadastrado com sucesso!");
+        setSucesso("Publicador atualizado com sucesso!");
         setTimeout(() => {
           router.push("/admin/usuarios");
         }, 1500);
       } else {
-        setErro(data.message || "Erro ao cadastrar publicador");
+        setErro(data.message || "Erro ao atualizar publicador");
       }
     } catch (error) {
       console.error(error);
@@ -150,11 +196,19 @@ export default function NovoUsuarioPage() {
     }
   };
 
+  if (carregandoDados) {
+    return (
+      <div className="flex justify-center items-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 max-w-4xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-          Novo Publicador
+          Editar Publicador
         </h1>
         <Link
           href="/admin/usuarios"
@@ -176,7 +230,10 @@ export default function NovoUsuarioPage() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 p-6">
+      <form
+        onSubmit={handleSubmit}
+        className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 p-6"
+      >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Foto */}
           <div className="col-span-2 flex items-center gap-4">
@@ -261,7 +318,7 @@ export default function NovoUsuarioPage() {
             </label>
             <select
               name="sexo"
-              value={form.sexo}
+              value={form.sexo || ""}
               onChange={handleChange}
               className="mt-1 w-full px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
@@ -282,7 +339,7 @@ export default function NovoUsuarioPage() {
             <input
               type="date"
               name="data_nascimento"
-              value={form.data_nascimento}
+              value={form.data_nascimento || ""}
               onChange={handleChange}
               className="mt-1 w-full px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
@@ -296,7 +353,7 @@ export default function NovoUsuarioPage() {
             <input
               type="date"
               name="data_batismo"
-              value={form.data_batismo}
+              value={form.data_batismo || ""}
               onChange={handleChange}
               className="mt-1 w-full px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
@@ -310,7 +367,7 @@ export default function NovoUsuarioPage() {
             <input
               type="text"
               name="telefone"
-              value={form.telefone}
+              value={form.telefone || ""}
               onChange={handleChange}
               placeholder="(00) 00000-0000"
               className="mt-1 w-full px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -341,42 +398,9 @@ export default function NovoUsuarioPage() {
             <input
               type="text"
               name="endereco"
-              value={form.endereco}
+              value={form.endereco || ""}
               onChange={handleChange}
               placeholder="Rua, número, bairro, cidade"
-              className="mt-1 w-full px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-
-          {/* Senha */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Senha *
-            </label>
-            <input
-              type="password"
-              name="senha"
-              value={form.senha}
-              onChange={handleChange}
-              required
-              minLength={6}
-              placeholder="Mínimo 6 caracteres"
-              className="mt-1 w-full px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-
-          {/* Confirmar Senha */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Confirmar Senha *
-            </label>
-            <input
-              type="password"
-              name="confirmar_senha"
-              value={form.confirmar_senha}
-              onChange={handleChange}
-              required
-              placeholder="Digite a senha novamente"
               className="mt-1 w-full px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
@@ -438,9 +462,10 @@ export default function NovoUsuarioPage() {
           <button
             type="submit"
             disabled={loading}
-            className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
+            className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
           >
-            {loading ? "Cadastrando..." : "Cadastrar Publicador"}
+            {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+            {loading ? "Salvando..." : "Salvar Alterações"}
           </button>
           <Link
             href="/admin/usuarios"

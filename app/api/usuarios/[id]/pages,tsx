@@ -1,0 +1,13 @@
+// app/admin/usuarios/[id]/page.tsx
+import { useParams } from "next/navigation";
+
+export default function TesteUsuarioPage() {
+  const params = useParams();
+  return (
+    <div className="p-6">
+      <h1 className="text-2xl font-bold">ID do Usuário: {params.id}</h1>
+      <p>Se você está vendo isso, a rota dinâmica está funcionando!</p>
+      <a href="/admin/usuarios" className="text-blue-600">← Voltar</a>
+    </div>
+  );
+}
