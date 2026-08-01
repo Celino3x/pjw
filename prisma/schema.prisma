@@ -1,7 +1,7 @@
 // prisma/schema.prisma
 generator client {
   provider = "prisma-client"
-  output   = "../app/generated/prisma"
+  output   = "./generated/client"
 }
 
 datasource db {
@@ -9,15 +9,66 @@ datasource db {
 }
 
 model Usuario {
-  id         Int     @id @default(autoincrement())
-  nome       String  @db.VarChar(150)
-  email      String  @unique @db.VarChar(150)
-  senha_hash String  @db.VarChar(255)
-  nivel_usuario String? @db.VarChar(50)
-  privilegio String? @db.VarChar(50)
-  foto_perfil String? @db.VarChar(255)
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
+  id            Int      @id @default(autoincrement())
+  nome          String   @db.VarChar(150)
+  email         String   @unique @db.VarChar(150)
+  senha_hash    String   @db.VarChar(255)
+  data_nascimento DateTime?
+  data_batismo  DateTime?
+  telefone      String?  @db.VarChar(20)
+  endereco      String?  @db.VarChar(255)
+  classe        String?  @db.VarChar(20)   // Ungido, Outras Ovelhas
+  sexo          String?  @db.VarChar(10)   // Masculino, Feminino
+  nivel_usuario String?  @db.VarChar(50)   // Admin, Publicador, Consulta
+  privilegio    String?  @db.VarChar(100)  // Ancião, Servo, Pioneiro, Publicador (JSON array)
+  foto_perfil   String?  @db.VarChar(255)
+  criado_em     DateTime @default(now())
+  atualizado_em DateTime @updatedAt
+
+  // Relacionamentos
+  designacoes_leitor      DesignacaoReuniao[] @relation("Leitor")
+  designacoes_indicador1  DesignacaoReuniao[] @relation("Indicador1")
+  designacoes_indicador2  DesignacaoReuniao[] @relation("Indicador2")
+  designacoes_volante1    DesignacaoReuniao[] @relation("Volante1")
+  designacoes_volante2    DesignacaoReuniao[] @relation("Volante2")
+  designacoes_pedestal    DesignacaoReuniao[] @relation("Pedestal")
+  designacoes_audio_video DesignacaoReuniao[] @relation("AudioVideo")
+  designacoes_seguranca   DesignacaoReuniao[] @relation("Seguranca")
+  designacoes_presidente  DesignacaoReuniao[] @relation("Presidente")
 
   @@map("usuarios")
+}
+
+model DesignacaoReuniao {
+  id            Int      @id @default(autoincrement())
+  data_reuniao  DateTime
+  dia_semana    String   @db.VarChar(20)
+  tipo_reuniao  String   @db.VarChar(20)  // meio_semana, final_semana
+  evento_especial String? @db.VarChar(50) // visita, assembleia, congresso
+  observacoes   String?  @db.Text
+
+  leitor_id       Int? @map("leitor_id")
+  indicador1_id   Int? @map("indicador1_id")
+  indicador2_id   Int? @map("indicador2_id")
+  volante1_id     Int? @map("volante1_id")
+  volante2_id     Int? @map("volante2_id")
+  pedestal_id     Int? @map("pedestal_id")
+  audio_video_id  Int? @map("audio_video_id")
+  seguranca_id    Int? @map("seguranca_id")
+  presidente_id   Int? @map("presidente_id")
+
+  leitor       Usuario? @relation("Leitor", fields: [leitor_id], references: [id])
+  indicador1   Usuario? @relation("Indicador1", fields: [indicador1_id], references: [id])
+  indicador2   Usuario? @relation("Indicador2", fields: [indicador2_id], references: [id])
+  volante1     Usuario? @relation("Volante1", fields: [volante1_id], references: [id])
+  volante2     Usuario? @relation("Volante2", fields: [volante2_id], references: [id])
+  pedestal     Usuario? @relation("Pedestal", fields: [pedestal_id], references: [id])
+  audio_video  Usuario? @relation("AudioVideo", fields: [audio_video_id], references: [id])
+  seguranca    Usuario? @relation("Seguranca", fields: [seguranca_id], references: [id])
+  presidente   Usuario? @relation("Presidente", fields: [presidente_id], references: [id])
+
+  mes Int @map("mes")
+  ano Int @map("ano")
+
+  @@map("designacoes_reuniao")
 }
