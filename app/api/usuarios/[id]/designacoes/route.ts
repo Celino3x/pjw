@@ -5,10 +5,12 @@ import { prisma } from "@/lib/prisma";
 // GET - Listar designações do usuário
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const id = parseInt(params.id);
+    // Aguardar o params ser resolvido (Next.js 16)
+    const { id: idParam } = await params;
+    const id = parseInt(idParam);
 
     if (isNaN(id)) {
       return NextResponse.json(
