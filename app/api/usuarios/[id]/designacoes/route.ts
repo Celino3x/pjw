@@ -1,15 +1,14 @@
 // app/api/usuarios/[id]/designacoes/route.ts
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+// GET - Listar designações do usuário
 export async function GET(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
     const id = parseInt(params.id);
-    const { searchParams } = new URL(request.url);
-    const data = searchParams.get("data");
 
     if (isNaN(id)) {
       return NextResponse.json(
@@ -17,6 +16,9 @@ export async function GET(
         { status: 400 }
       );
     }
+
+    const { searchParams } = new URL(request.url);
+    const data = searchParams.get("data");
 
     const where: any = {
       OR: [
@@ -64,12 +66,11 @@ export async function GET(
       };
     });
 
-    return NextResponse.json({ 
-      success: true, 
+    return NextResponse.json({
+      success: true,
       designacoes: designacoesFormatadas,
       total: designacoesFormatadas.length,
     });
-
   } catch (error) {
     console.error("Erro ao buscar designações:", error);
     return NextResponse.json(
